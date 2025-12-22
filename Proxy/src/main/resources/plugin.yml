@@ -1,0 +1,4 @@
+name: SkyblockProxy
+main: dev.cobblesword.skyblock.proxy.ProxyPlugin
+version: 1.0
+author: SprockPls

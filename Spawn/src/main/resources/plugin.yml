@@ -1,0 +1,4 @@
+name: SkyblockSpawn
+version: 1.0.0
+main: dev.cobblesword.skyblock.spawn.SpawnPlugin
+api-version: '1.20'
