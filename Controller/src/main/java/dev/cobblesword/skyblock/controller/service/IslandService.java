@@ -3,6 +3,8 @@ package dev.cobblesword.skyblock.controller.service;
 import dev.cobblesword.skyblock.controller.model.Island;
 import dev.cobblesword.skyblock.controller.model.Server;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -91,6 +93,24 @@ public class IslandService {
         }
 
         return new RouteResult(island.getServerId(), null);
+    }
+
+    // Stats methods for dashboard
+    public int getTotalIslands() {
+        return islands.size();
+    }
+
+    public int getLoadedIslands() {
+        return (int) islands.values().stream()
+                .filter(Island::isLoaded)
+                .count();
+    }
+
+    public List<Island> getRecentIslands() {
+        return islands.values().stream()
+                .sorted(Comparator.comparingLong(Island::getLastAccessed).reversed())
+                .limit(10)
+                .toList();
     }
 
     // Result types

@@ -14,6 +14,6 @@ public class PlayerListener implements Listener
     {
         ProxiedPlayer player = event.getPlayer();
 
-        player.connect(ProxyServer.getInstance().getServerInfo("spawn-01"));
+        player.connect(ProxyServer.getInstance().getServerInfo("Spawn-01"));
     }
 }

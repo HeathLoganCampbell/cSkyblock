@@ -1,5 +1,6 @@
 package dev.cobblesword.skyblock.controller.service;
 
+import dev.cobblesword.skyblock.controller.api.ServerRoutes.HeartbeatRequest;
 import dev.cobblesword.skyblock.controller.model.Server;
 
 import java.util.Collection;
@@ -7,6 +8,7 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class ServerRegistry {
 
@@ -17,11 +19,24 @@ public class ServerRegistry {
         System.out.println("Server registered: " + server.getId() + " (" + server.getType() + ")");
     }
 
-    public void heartbeat(String serverId, int playerCount) {
+    public void heartbeat(String serverId, HeartbeatRequest req) {
         Server server = servers.get(serverId);
         if (server != null) {
             server.setLastHeartbeat(System.currentTimeMillis());
-            server.setPlayerCount(playerCount);
+            server.setPlayerCount(req.playerCount());
+            server.setTps(req.tps());
+            server.setMemoryUsed(req.memoryUsed());
+            server.setMemoryMax(req.memoryMax());
+            server.setCpuUsage(req.cpuUsage());
+            
+            // Update island metrics
+            if (req.islands() != null) {
+                server.setIslands(
+                    req.islands().stream()
+                        .map(m -> new Server.IslandMetrics(m.id(), m.chunks(), m.entities(), m.tileEntities(), m.players()))
+                        .collect(Collectors.toList())
+                );
+            }
         }
     }
 
@@ -67,5 +82,14 @@ public class ServerRegistry {
                 .filter(Server::isIslandServer)
                 .min(Comparator.comparingInt(Server::getPlayerCount));
     }
-}
 
+    /**
+     * Get total player count across all servers
+     */
+    public int getTotalPlayers() {
+        return servers.values().stream()
+                .filter(Server::isOnline)
+                .mapToInt(Server::getPlayerCount)
+                .sum();
+    }
+}

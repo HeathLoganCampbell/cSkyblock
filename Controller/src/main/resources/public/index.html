@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skyopoly Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-dark: #0a0e14;
+            --bg-card: #12171f;
+            --bg-card-hover: #1a2029;
+            --border: #2a3441;
+            --text: #e6e6e6;
+            --text-dim: #6b7d93;
+            --accent: #00d9ff;
+            --accent-glow: rgba(0, 217, 255, 0.15);
+            --success: #00ff88;
+            --warning: #ffaa00;
+            --danger: #ff4466;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(ellipse at 20% 0%, rgba(0, 217, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(0, 255, 136, 0.05) 0%, transparent 50%);
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
+
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 48px; padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo { display: flex; align-items: center; gap: 16px; }
+
+        .logo-icon {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+        }
+
+        h1 {
+            font-size: 28px; font-weight: 700;
+            background: linear-gradient(135deg, var(--text), var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 16px; background: var(--bg-card);
+            border: 1px solid var(--border); border-radius: 100px; font-size: 14px;
+        }
+
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--success); animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 20px; margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px;
+        }
+
+        .stat-label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value { font-size: 36px; font-weight: 700; font-family: 'JetBrains Mono', monospace; margin-top: 8px; }
+
+        .section-title {
+            font-size: 18px; font-weight: 600; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 12px;
+        }
+
+        .section-title::before {
+            content: ''; width: 4px; height: 20px;
+            background: var(--accent); border-radius: 2px;
+        }
+
+        .server-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px; margin-bottom: 40px;
+        }
+
+        .server-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; overflow: hidden; transition: all 0.2s ease;
+        }
+
+        .server-card:hover {
+            border-color: var(--accent); box-shadow: 0 0 30px var(--accent-glow);
+        }
+
+        .server-header {
+            padding: 20px; display: flex; justify-content: space-between;
+            align-items: center; border-bottom: 1px solid var(--border);
+        }
+
+        .server-name { font-weight: 600; font-size: 18px; }
+        .server-type { font-size: 12px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+
+        .server-status { width: 10px; height: 10px; border-radius: 50%; }
+        .server-status.online { background: var(--success); box-shadow: 0 0 10px var(--success); }
+        .server-status.offline { background: var(--danger); }
+
+        .server-metrics {
+            padding: 20px; display: grid;
+            grid-template-columns: repeat(4, 1fr); gap: 16px;
+        }
+
+        .metric { text-align: center; }
+
+        .metric-value {
+            font-size: 24px; font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .metric-label {
+            font-size: 11px; color: var(--text-dim);
+            text-transform: uppercase; margin-top: 4px;
+        }
+
+        .metric-value.good { color: var(--success); }
+        .metric-value.warn { color: var(--warning); }
+        .metric-value.bad { color: var(--danger); }
+
+        .progress-bar {
+            width: 100%; height: 4px; background: var(--border);
+            border-radius: 2px; margin-top: 8px; overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%; border-radius: 2px; transition: width 0.3s ease;
+        }
+
+        .server-islands {
+            padding: 0; background: rgba(0,0,0,0.2);
+            border-top: 1px solid var(--border);
+        }
+
+        .islands-header {
+            padding: 12px 20px; font-size: 11px; color: var(--text-dim);
+            text-transform: uppercase; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between;
+        }
+
+        .island-row {
+            padding: 12px 20px; display: grid;
+            grid-template-columns: 100px repeat(4, 1fr);
+            gap: 12px; align-items: center;
+            border-bottom: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace; font-size: 12px;
+        }
+
+        .island-row:last-child { border-bottom: none; }
+        .island-row:hover { background: rgba(0, 217, 255, 0.05); }
+
+        .island-id {
+            color: var(--accent); font-weight: 600;
+        }
+
+        .island-stat {
+            text-align: center;
+        }
+
+        .island-stat-value { font-weight: 600; }
+        .island-stat-label { font-size: 9px; color: var(--text-dim); margin-top: 2px; }
+
+        .load-badge {
+            padding: 2px 8px; border-radius: 4px;
+            font-size: 10px; font-weight: 600;
+        }
+
+        .load-badge.low { background: rgba(0, 255, 136, 0.15); color: var(--success); }
+        .load-badge.medium { background: rgba(255, 170, 0, 0.15); color: var(--warning); }
+        .load-badge.high { background: rgba(255, 68, 102, 0.15); color: var(--danger); }
+
+        .no-islands {
+            padding: 20px; text-align: center;
+            color: var(--text-dim); font-size: 12px; font-style: italic;
+        }
+
+        .refresh-info {
+            text-align: center; color: var(--text-dim); font-size: 12px;
+            margin-top: 40px; font-family: 'JetBrains Mono', monospace;
+        }
+
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+
+        @media (max-width: 1100px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .server-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 600px) {
+            .server-metrics { grid-template-columns: repeat(2, 1fr); }
+            .island-row { grid-template-columns: 80px repeat(2, 1fr); }
+            .island-row > *:nth-child(4), .island-row > *:nth-child(5) { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">🏝️</div>
+                <h1>Skyopoly</h1>
+            </div>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                <span>Controller Online</span>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Servers</div>
+                <div class="stat-value" id="server-count">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Players</div>
+                <div class="stat-value" id="player-count">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Islands</div>
+                <div class="stat-value" id="island-count">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Loaded</div>
+                <div class="stat-value" id="loaded-count">-</div>
+            </div>
+        </div>
+
+        <h2 class="section-title">Servers</h2>
+        <div class="server-grid" id="servers-list">
+            <div class="empty-state">🔄 Loading...</div>
+        </div>
+
+        <div class="refresh-info">
+            Auto-refreshes every 3s • <span id="last-update">-</span>
+        </div>
+    </div>
+
+    <script>
+        async function fetchData() {
+            try {
+                const [serversRes, statsRes] = await Promise.all([
+                    fetch('/api/servers'),
+                    fetch('/api/stats')
+                ]);
+                const servers = await serversRes.json();
+                const stats = await statsRes.json();
+                updateUI(servers, stats);
+            } catch (err) {
+                console.error('Fetch error:', err);
+            }
+        }
+
+        function updateUI(servers, stats) {
+            document.getElementById('server-count').textContent = servers.length;
+            document.getElementById('player-count').textContent = stats.totalPlayers || 0;
+            document.getElementById('island-count').textContent = stats.totalIslands || 0;
+            document.getElementById('loaded-count').textContent = stats.loadedIslands || 0;
+
+            const serversList = document.getElementById('servers-list');
+            
+            if (servers.length === 0) {
+                serversList.innerHTML = '<div class="empty-state">No servers registered</div>';
+                return;
+            }
+
+            serversList.innerHTML = servers.map(server => {
+                const online = isOnline(server);
+                const tpsClass = server.tps >= 19 ? 'good' : server.tps >= 15 ? 'warn' : 'bad';
+                const memPercent = server.memoryMax > 0 ? Math.round((server.memoryUsed / server.memoryMax) * 100) : 0;
+                const memClass = memPercent < 70 ? 'good' : memPercent < 85 ? 'warn' : 'bad';
+                const cpuClass = server.cpuUsage < 50 ? 'good' : server.cpuUsage < 80 ? 'warn' : 'bad';
+                
+                const islands = server.islands || [];
+                
+                return `
+                    <div class="server-card">
+                        <div class="server-header">
+                            <div>
+                                <div class="server-name">${server.id}</div>
+                                <div class="server-type">${server.type} • ${server.host}:${server.port}</div>
+                            </div>
+                            <div class="server-status ${online ? 'online' : 'offline'}"></div>
+                        </div>
+                        <div class="server-metrics">
+                            <div class="metric">
+                                <div class="metric-value">${server.playerCount || 0}</div>
+                                <div class="metric-label">Players</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value ${tpsClass}">${(server.tps || 20).toFixed(1)}</div>
+                                <div class="metric-label">TPS</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value ${memClass}">${memPercent}%</div>
+                                <div class="metric-label">RAM (${server.memoryUsed || 0}/${server.memoryMax || 0}MB)</div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${memPercent}%; background: var(--${memClass === 'good' ? 'success' : memClass === 'warn' ? 'warning' : 'danger'})"></div>
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value ${cpuClass}">${(server.cpuUsage || 0).toFixed(0)}%</div>
+                                <div class="metric-label">CPU</div>
+                            </div>
+                        </div>
+                        ${server.type === 'islands' ? renderIslandsSection(islands) : ''}
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+        }
+
+        function renderIslandsSection(islands) {
+            if (islands.length === 0) {
+                return `
+                    <div class="server-islands">
+                        <div class="no-islands">No islands loaded</div>
+                    </div>
+                `;
+            }
+
+            // Sort by load score (highest first)
+            const sorted = [...islands].sort((a, b) => getLoadScore(b) - getLoadScore(a));
+
+            return `
+                <div class="server-islands">
+                    <div class="islands-header">
+                        <span>Loaded Islands (${islands.length})</span>
+                        <span>Sorted by resource usage</span>
+                    </div>
+                    ${sorted.map(island => {
+                        const score = getLoadScore(island);
+                        const loadClass = score < 50 ? 'low' : score < 150 ? 'medium' : 'high';
+                        const loadLabel = score < 50 ? 'LOW' : score < 150 ? 'MED' : 'HIGH';
+                        
+                        return `
+                            <div class="island-row">
+                                <div class="island-id">${island.id.substring(0, 8)}</div>
+                                <div class="island-stat">
+                                    <div class="island-stat-value">${island.chunks}</div>
+                                    <div class="island-stat-label">Chunks</div>
+                                </div>
+                                <div class="island-stat">
+                                    <div class="island-stat-value">${island.entities}</div>
+                                    <div class="island-stat-label">Entities</div>
+                                </div>
+                                <div class="island-stat">
+                                    <div class="island-stat-value">${island.tileEntities}</div>
+                                    <div class="island-stat-label">Tile Ent.</div>
+                                </div>
+                                <div class="island-stat">
+                                    <span class="load-badge ${loadClass}">${loadLabel}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function getLoadScore(island) {
+            return island.chunks + (island.entities / 10) + (island.tileEntities * 2);
+        }
+
+        function isOnline(server) {
+            if (!server.lastHeartbeat) return false;
+            return (Date.now() - server.lastHeartbeat) < 30000;
+        }
+
+        fetchData();
+        setInterval(fetchData, 3000);
+    </script>
+</body>
+</html>

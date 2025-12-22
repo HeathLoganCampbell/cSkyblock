@@ -52,7 +52,8 @@ remote_ping_timeout: 5000
 prevent_proxy_connections: false
 groups: {}
 connection_throttle: 4000
-stats: false
+stats: 5184f71c-48e2-46ea-9a7d-ce642480a1b5
+enforce_secure_profile: false
 connection_throttle_limit: 3
 log_pings: false
 EOF

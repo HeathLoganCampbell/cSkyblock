@@ -100,9 +100,31 @@ public class SkyblockLibrary
             .thenRun(() -> System.out.println("✓ Registered with controller: " + serverId))
             .exceptionally(e -> { System.err.println("✗ Failed to register with controller: " + e.getMessage()); return null; });
 
-        // Start heartbeat task
-        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
-            controller.heartbeat(serverId, Bukkit.getOnlinePlayers().size());
+        // Start heartbeat task with metrics
+        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            Runtime runtime = Runtime.getRuntime();
+            long memoryUsed = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+            long memoryMax = runtime.maxMemory() / (1024 * 1024);
+            double tps = getTps();
+            double cpuUsage = getCpuUsage();
+            
+            // Get island metrics (worlds starting with "islands/")
+            java.util.List<ControllerClient.IslandMetrics> islands = Bukkit.getWorlds().stream()
+                .filter(w -> w.getName().startsWith("islands/"))
+                .map(w -> new ControllerClient.IslandMetrics(
+                    w.getName().replace("islands/", ""),
+                    w.getLoadedChunks().length,
+                    w.getEntities().size(),
+                    countTileEntities(w),
+                    w.getPlayers().size()
+                ))
+                .toList();
+            
+            // Run HTTP call async
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                controller.heartbeat(serverId, Bukkit.getOnlinePlayers().size(), 
+                                    tps, memoryUsed, memoryMax, cpuUsage, islands);
+            });
         }, 200L, 200L); // Every 10 seconds
 
         this.skyblockApi = new SkyblockApi(this.getMessageExchange(), serverId, false);
@@ -139,5 +161,45 @@ public class SkyblockLibrary
     public ServerType getServerType()
     {
         return this.serverTrackerModule.getServerType();
+    }
+
+    /**
+     * Count tile entities in a world
+     */
+    private int countTileEntities(org.bukkit.World world) {
+        int count = 0;
+        for (org.bukkit.Chunk chunk : world.getLoadedChunks()) {
+            count += chunk.getTileEntities().length;
+        }
+        return count;
+    }
+
+    /**
+     * Get server TPS using reflection (Paper/Spigot)
+     */
+    private double getTps() {
+        try {
+            // Paper has Bukkit.getTPS()
+            Object tpsArray = Bukkit.class.getMethod("getTPS").invoke(null);
+            return ((double[]) tpsArray)[0]; // 1 minute average
+        } catch (Exception e) {
+            return 20.0; // Default to perfect TPS if unavailable
+        }
+    }
+
+    /**
+     * Get CPU usage estimate
+     */
+    private double getCpuUsage() {
+        try {
+            java.lang.management.OperatingSystemMXBean os = 
+                java.lang.management.ManagementFactory.getOperatingSystemMXBean();
+            if (os instanceof com.sun.management.OperatingSystemMXBean sunOs) {
+                return sunOs.getProcessCpuLoad() * 100;
+            }
+            return os.getSystemLoadAverage() / os.getAvailableProcessors() * 100;
+        } catch (Exception e) {
+            return 0;
+        }
     }
 }

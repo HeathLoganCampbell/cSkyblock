@@ -2,6 +2,7 @@ package dev.cobblesword.skyblock.proxy.islands;
 
 import dev.cobblesword.exchange.api.IExchange;
 import dev.cobblesword.skyblock.protocol.requests.RequestPlayerGoToSpawn;
+import dev.cobblesword.skyblock.protocol.requests.RequestPlayerRoute;
 import dev.cobblesword.skyblock.proxy.controller.ProxyControllerClient;
 import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.config.ServerInfo;
@@ -18,7 +19,7 @@ public class IslandManager {
     private final ProxyServer proxy;
     private final ProxyControllerClient controller;
     private final IExchange exchange;
-    private final String spawnServerId = "spawn-01";
+    private final String spawnServerId = "Spawn-01";
 
     public IslandManager(ProxyServer proxy, ProxyControllerClient controller, IExchange exchange) {
         this.proxy = proxy;
@@ -29,12 +30,29 @@ public class IslandManager {
     }
 
     private void setupListeners() {
-        // Listen for spawn teleport requests (still uses Redis for now)
         exchange.subscribe(e -> {
+            // Route to spawn
             if (e instanceof RequestPlayerGoToSpawn request) {
                 handleSpawnRequest(request);
             }
+            // Route to any server (for island teleports)
+            if (e instanceof RequestPlayerRoute request) {
+                handleRouteRequest(request);
+            }
         });
+    }
+
+    private void handleRouteRequest(RequestPlayerRoute request) {
+        UUID playerId = request.getPlayerId();
+        String targetServer = request.getTargetServer();
+
+        ProxiedPlayer player = proxy.getPlayer(playerId);
+        if (player == null) {
+            System.out.println("Player " + playerId + " not online for route to " + targetServer);
+            return;
+        }
+
+        sendToServer(player, targetServer);
     }
 
     private void handleSpawnRequest(RequestPlayerGoToSpawn request) {

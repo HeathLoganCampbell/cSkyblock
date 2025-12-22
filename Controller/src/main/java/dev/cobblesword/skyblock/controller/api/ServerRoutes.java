@@ -3,7 +3,9 @@ package dev.cobblesword.skyblock.controller.api;
 import dev.cobblesword.skyblock.controller.model.Server;
 import dev.cobblesword.skyblock.controller.service.ServerRegistry;
 import io.javalin.Javalin;
-import io.javalin.http.Context;
+
+import java.util.List;
+import java.util.UUID;
 
 public class ServerRoutes {
 
@@ -17,11 +19,11 @@ public class ServerRoutes {
             ctx.json(new Response("registered", server.getId()));
         });
 
-        // Heartbeat
+        // Heartbeat with metrics
         app.post("/api/servers/{id}/heartbeat", ctx -> {
             String serverId = ctx.pathParam("id");
             HeartbeatRequest req = ctx.bodyAsClass(HeartbeatRequest.class);
-            registry.heartbeat(serverId, req.playerCount);
+            registry.heartbeat(serverId, req);
             ctx.json(new Response("ok", serverId));
         });
 
@@ -34,7 +36,7 @@ public class ServerRoutes {
 
         // List all servers
         app.get("/api/servers", ctx -> {
-            ctx.json(registry.getOnlineServers());
+            ctx.json(registry.getAll());
         });
 
         // Get specific server
@@ -49,8 +51,18 @@ public class ServerRoutes {
 
     // Request/Response types
     record RegisterRequest(String id, String type, String host, int port) {}
-    record HeartbeatRequest(int playerCount) {}
+    
+    public record HeartbeatRequest(
+        int playerCount, 
+        double tps, 
+        long memoryUsed, 
+        long memoryMax,
+        double cpuUsage,
+        List<IslandMetrics> islands
+    ) {}
+    
+    public record IslandMetrics(String id, int chunks, int entities, int tileEntities, int players) {}
+    
     record Response(String status, String serverId) {}
     record ErrorResponse(String error) {}
 }
-

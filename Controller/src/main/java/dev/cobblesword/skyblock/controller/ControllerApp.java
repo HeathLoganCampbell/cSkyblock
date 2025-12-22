@@ -5,6 +5,7 @@ import dev.cobblesword.skyblock.controller.api.ServerRoutes;
 import dev.cobblesword.skyblock.controller.service.IslandService;
 import dev.cobblesword.skyblock.controller.service.ServerRegistry;
 import io.javalin.Javalin;
+import io.javalin.http.staticfiles.Location;
 import io.javalin.json.JsonMapper;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -42,6 +43,8 @@ public class ControllerApp {
         Javalin app = Javalin.create(config -> {
             config.jsonMapper(gsonMapper);
             config.http.defaultContentType = "application/json";
+            // Serve static files (dashboard)
+            config.staticFiles.add("/public", Location.CLASSPATH);
         });
 
         // Register routes
@@ -51,12 +54,24 @@ public class ControllerApp {
         // Health check
         app.get("/health", ctx -> ctx.json(new HealthResponse("ok")));
 
+        // Stats endpoint for dashboard
+        app.get("/api/stats", ctx -> {
+            var stats = new StatsResponse(
+                serverRegistry.getTotalPlayers(),
+                islandService.getTotalIslands(),
+                islandService.getLoadedIslands(),
+                islandService.getRecentIslands()
+            );
+            ctx.json(stats);
+        });
+
         // Start server
         app.start(port);
 
         System.out.println("╔═══════════════════════════════════════╗");
         System.out.println("║     Skyblock Controller Started       ║");
         System.out.println("║     http://localhost:" + port + "              ║");
+        System.out.println("║     Dashboard: http://localhost:" + port + "   ║");
         System.out.println("╚═══════════════════════════════════════╝");
 
         // Shutdown hook
@@ -67,5 +82,6 @@ public class ControllerApp {
     }
 
     record HealthResponse(String status) {}
+    record StatsResponse(int totalPlayers, int totalIslands, int loadedIslands, 
+                         java.util.List<dev.cobblesword.skyblock.controller.model.Island> islands) {}
 }
-

@@ -37,8 +37,10 @@ public class ControllerClient {
         return post("/api/servers", body).thenApply(r -> null);
     }
 
-    public CompletableFuture<Void> heartbeat(String serverId, int playerCount) {
-        var body = new HeartbeatRequest(playerCount);
+    public CompletableFuture<Void> heartbeat(String serverId, int playerCount, double tps, 
+                                              long memoryUsed, long memoryMax, double cpuUsage,
+                                              java.util.List<IslandMetrics> islands) {
+        var body = new HeartbeatRequest(playerCount, tps, memoryUsed, memoryMax, cpuUsage, islands);
         return post("/api/servers/" + serverId + "/heartbeat", body).thenApply(r -> null);
     }
 
@@ -129,7 +131,9 @@ public class ControllerClient {
     // ═══════════════════════════════════════════════════════════════
 
     public record ServerRegisterRequest(String id, String type, String host, int port) {}
-    public record HeartbeatRequest(int playerCount) {}
+    public record HeartbeatRequest(int playerCount, double tps, long memoryUsed, long memoryMax, 
+                                   double cpuUsage, java.util.List<IslandMetrics> islands) {}
+    public record IslandMetrics(String id, int chunks, int entities, int tileEntities, int players) {}
     public record MarkReadyRequest(String serverId) {}
 
     public record IslandResponse(Island island, String serverId, boolean needsLoading, String error) {}

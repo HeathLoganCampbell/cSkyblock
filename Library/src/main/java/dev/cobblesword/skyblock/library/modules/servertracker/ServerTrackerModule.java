@@ -45,7 +45,8 @@ public class ServerTrackerModule extends Module
         Sync.get().run(() -> {
             KeepAlive keepAlive = new KeepAlive();
             keepAlive.setServerId(serverId);
-            keepAlive.setAddress(Bukkit.getIp());
+            String ip = Bukkit.getIp();
+            keepAlive.setAddress(ip.isEmpty() ? "localhost" : ip);
             keepAlive.setPort(Bukkit.getPort());
             keepAlive.setPlayerCount(Bukkit.getOnlinePlayers().size());
             keepAlive.setTimestamp(System.currentTimeMillis());
@@ -53,7 +54,7 @@ public class ServerTrackerModule extends Module
             SkyblockLibrary.get().getMessageExchange().publishMessage(keepAlive);
 
             removeInactiveServers();
-        }).interval(60).execute();
+        }).interval(5).execute();  // Every 5 seconds instead of 60
 
         SkyblockLibrary.get().getMessageExchange().subscribe((message) -> {
             if (message instanceof KeepAlive keepAlive)
