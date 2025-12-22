@@ -9,8 +9,8 @@ import dev.cobblesword.skyblock.library.modules.Module;
 import dev.cobblesword.skyblock.library.modules.playersync.database.PlayerSyncRepository;
 import dev.cobblesword.skyblock.library.modules.playersync.listeners.PlayerSyncListener;
 import dev.cobblesword.skyblock.protocol.requests.RePullInventoryRequest;
+import dev.cobblesword.skyblock.library.common.messages.Messages;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 
@@ -96,7 +96,7 @@ public class PlayerSyncModule extends Module
         PlayerSyncRepository.PlayerData playerData = repository.getPlayerData(player.getUniqueId());
 
         if (playerData == null) {
-            player.sendMessage(ChatColor.GRAY + "RemoteInv ] No saved data found, starting fresh.");
+            // First time player - no sync needed
             return;
         }
 
@@ -118,8 +118,8 @@ public class PlayerSyncModule extends Module
         player.setLevel(playerData.getLevel());
         player.setFireTicks(playerData.getFireTicks());
         player.getInventory().setHeldItemSlot(playerData.getInventorySelectedSlot());
-
-        player.sendMessage(ChatColor.GREEN + "RemoteInv ] loaded inventory");
+        
+        // Silent sync - no message needed, player expects their inventory
     }
 
     public void triggerRePull(UUID playerId)

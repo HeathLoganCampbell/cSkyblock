@@ -2,13 +2,14 @@ package dev.cobblesword.skyblock.library.modules.scoreboard;
 
 import dev.cobblesword.skyblock.library.SkyblockLibrary;
 import dev.cobblesword.skyblock.library.common.messages.CC;
+import dev.cobblesword.skyblock.library.common.messages.Messages;
 import dev.cobblesword.skyblock.library.common.task.Sync;
 import dev.cobblesword.skyblock.library.modules.Module;
 import dev.cobblesword.skyblock.library.modules.servertracker.ServerType;
 import dev.cobblesword.skyblock.library.modules.skyislands.models.Island;
 import fr.mrmicky.fastboard.FastBoard;
 import org.bukkit.Bukkit;
-import org.bukkit.Statistic;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -16,6 +17,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -23,6 +26,12 @@ import java.util.UUID;
 public class ScoreboardModule extends Module implements Listener
 {
     private final Map<UUID, FastBoard> boards = new HashMap<>();
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("MM/dd/yy");
+    
+    // Scoreboard styling
+    private static final String TITLE = CC.bAqua + "★ " + CC.bWhite + "SKYOPOLY" + CC.bAqua + " ★";
+    private static final String LINE = CC.darkGray + "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄";
+    private static final String BULLET = CC.aqua + "▸ ";
 
     public ScoreboardModule() {
         super("Scoreboard");
@@ -36,7 +45,7 @@ public class ScoreboardModule extends Module implements Listener
             for (FastBoard board : this.boards.values()) {
                 updateBoard(board);
             }
-        }).interval(20).execute();
+        }).interval(10).execute(); // Update every 0.5s for smoother feel
     }
 
     @Override
@@ -49,10 +58,14 @@ public class ScoreboardModule extends Module implements Listener
         Player player = e.getPlayer();
 
         FastBoard board = new FastBoard(player);
-
-        board.updateTitle(CC.aqua + "Skyopoly");
+        board.updateTitle(TITLE);
 
         this.boards.put(player.getUniqueId(), board);
+        
+        // Show welcome title
+        Bukkit.getScheduler().runTaskLater(SkyblockLibrary.get().getPlugin(), () -> {
+            Messages.welcome(player);
+        }, 10L);
     }
 
     @EventHandler
@@ -89,25 +102,43 @@ public class ScoreboardModule extends Module implements Listener
 
     private void updateBoard(FastBoard board)
     {
-        String placeLine = "No idea";
-
         Player player = board.getPlayer();
+        if (player == null || !player.isOnline()) return;
+        
+        String locationLine;
+        String locationIcon;
+        
         Island islandPlayerIsOn = SkyblockLibrary.get().getSkyIslandsModule().getIslandPlayerIsOn(player);
         if(islandPlayerIsOn != null)
         {
-            placeLine = "Island: " + islandPlayerIsOn.getDisplayName();
+            locationIcon = CC.green + "⛰";
+            locationLine = CC.white + islandPlayerIsOn.getDisplayName();
         }
-
-        if(SkyblockLibrary.get().getServerType() == ServerType.SPAWN)
+        else if(SkyblockLibrary.get().getServerType() == ServerType.SPAWN)
         {
-            placeLine = "Spawn";
+            locationIcon = CC.gold + "⚑";
+            locationLine = CC.white + "Spawn Lobby";
+        }
+        else
+        {
+            locationIcon = CC.gray + "◆";
+            locationLine = CC.gray + "Unknown";
         }
 
+        int totalPlayers = Bukkit.getServer().getOnlinePlayers().size();
+        String date = dateFormat.format(new Date());
+        
         board.updateLines(
-                placeLine,
-                "",
-                "Players: " + Bukkit.getServer().getOnlinePlayers().size(),
-                "Server: " + SkyblockLibrary.get().getServerId()
+            CC.gray + date,
+            "",
+            BULLET + CC.white + "Location",
+            "  " + locationIcon + " " + locationLine,
+            "",
+            BULLET + CC.white + "Players",
+            "  " + CC.aqua + totalPlayers + CC.gray + " online",
+            "",
+            LINE,
+            CC.gold + "play.skyopoly.net"
         );
     }
 }

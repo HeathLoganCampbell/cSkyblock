@@ -62,8 +62,7 @@ public class IslandManager
                         // Use the connect() method to send the player to the target server
                         player.connect(targetServer);
                     } else {
-                        // Handle the case where the target server doesn't exist
-                        player.sendMessage("The target server does not exist.");
+                        player.sendMessage("§c✖ §7Server unavailable. Please try again.");
                     }
                 } else {
                     // Handle the case where the player is not online
@@ -135,8 +134,7 @@ public class IslandManager
                         // Use the connect() method to send the player to the target server
                         player.connect(targetServer);
                     } else {
-                        // Handle the case where the target server doesn't exist
-                        player.sendMessage("The target server does not exist.");
+                        player.sendMessage("§c✖ §7Server unavailable. Please try again.");
                     }
                 } else {
                     // Handle the case where the player is not online

@@ -2,7 +2,7 @@ package dev.cobblesword.skyblock.library.modules.skyislands;
 
 import dev.cobblesword.exchange.api.IExchange;
 import dev.cobblesword.skyblock.library.SkyblockLibrary;
-import dev.cobblesword.skyblock.library.common.messages.CC;
+import dev.cobblesword.skyblock.library.common.messages.Messages;
 import dev.cobblesword.skyblock.library.common.task.Sync;
 import dev.cobblesword.skyblock.library.modules.Module;
 import dev.cobblesword.skyblock.library.modules.prepare.PrepareModule;
@@ -13,9 +13,7 @@ import dev.cobblesword.skyblock.library.modules.skyislands.commands.SpawnCommand
 import dev.cobblesword.skyblock.library.modules.skyislands.listeners.DeathReturnToIslandListener;
 import dev.cobblesword.skyblock.library.modules.skyislands.models.Island;
 import dev.cobblesword.skyblock.protocol.models.IslandModel;
-import dev.jorel.commandapi.CommandAPICommand;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
@@ -84,6 +82,11 @@ public class SkyIslandsModule extends Module
                     prepareModule.registerRunnable(playerId, player -> {
                         player.setPlayerListHeaderFooter("Skyblock", "Server: " + SkyblockLibrary.get().getServerId());
                         player.teleport(world.getSpawnLocation());
+                        
+                        // Show arrival message
+                        Sync.get().run(() -> {
+                            Messages.arrived(player, "Your Island");
+                        }).delay(5).execute();
                     });
                     return true;
                 }
