@@ -4,6 +4,7 @@ import dev.cobblesword.exchange.api.IExchange;
 import dev.cobblesword.skyblock.library.SkyblockLibrary;
 import dev.cobblesword.skyblock.library.common.messages.Messages;
 import dev.cobblesword.skyblock.library.common.task.Sync;
+import dev.cobblesword.skyblock.library.controller.ControllerClient;
 import dev.cobblesword.skyblock.library.modules.Module;
 import dev.cobblesword.skyblock.library.modules.prepare.PrepareModule;
 import dev.cobblesword.skyblock.library.modules.remoteworlds.RemoteWorldsModule;
@@ -12,160 +13,184 @@ import dev.cobblesword.skyblock.library.modules.skyislands.commands.IslandComman
 import dev.cobblesword.skyblock.library.modules.skyislands.commands.SpawnCommand;
 import dev.cobblesword.skyblock.library.modules.skyislands.listeners.DeathReturnToIslandListener;
 import dev.cobblesword.skyblock.library.modules.skyislands.models.Island;
-import dev.cobblesword.skyblock.protocol.models.IslandModel;
+import dev.cobblesword.skyblock.protocol.requests.RequestPlayerGoToIsland;
+import dev.cobblesword.skyblock.protocol.requests.RequestPlayerGoToSpawn;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
-import java.util.List;
 import java.util.UUID;
 
 public class SkyIslandsModule extends Module
 {
-    private IExchange exchange;
+    private final IExchange exchange;
+    private final PrepareModule prepareModule;
+    private final RemoteWorldsModule remoteWorldsModule;
+    private final ControllerClient controller;
 
-    private PrepareModule prepareModule;
-
-    private RemoteWorldsModule remoteWorldsModule;
-
-    public SkyIslandsModule(PrepareModule prepareModule, RemoteWorldsModule remoteWorldsModule, IExchange exchange)
+    public SkyIslandsModule(PrepareModule prepareModule, RemoteWorldsModule remoteWorldsModule, 
+                            IExchange exchange, ControllerClient controller)
     {
         super("SkyIslands");
         this.exchange = exchange;
         this.prepareModule = prepareModule;
         this.remoteWorldsModule = remoteWorldsModule;
+        this.controller = controller;
     }
 
     @Override
     protected void onEnable()
     {
-
-        if(SkyblockLibrary.get().getServerType() == ServerType.ISLANDS)
-        {
-            SkyblockLibrary.get().getApi().getCreateIslandFlow().setServerHandler((requesterPlayerId, callback) -> {
-                UUID islandId = requesterPlayerId;
-
-                int islandSize = 50;
-
-                remoteWorldsModule.loadWorld("islands/" + islandId, world -> {
-                    world.setSpawnLocation(0, 100, 0);
-                    world.getWorldBorder().setCenter(0, 0);
-                    world.getWorldBorder().setSize(islandSize);
-                    callback.accept(new IslandModel(SkyblockLibrary.get().getServerId(), islandId, islandId));
-                    setIslandsServer(islandId, SkyblockLibrary.get().getServerId());
-                });
-            });
-
-            SkyblockLibrary.get().getApi().getTeleportToIslandFlow().setServerHandler((playerId, serverId, islandId, playerData) -> {
-                World world = Bukkit.getWorld("islands/" + islandId);
-
-                if(world == null)
-                {
-                    System.out.println(">>>>>>>>World not loaded yet");
-                    System.out.println(" could not find world islands/" + islandId);
-                    return false;
-                }
-
-                Player onlinePlayer = Bukkit.getPlayer(playerId);
-                boolean isOnCurrentServer = onlinePlayer != null;
-                if(isOnCurrentServer)
-                {
-                    System.out.println("Player already on server " + onlinePlayer);
-
-                    Sync.get().run(() -> onlinePlayer.teleport(world.getSpawnLocation())).execute();
-
-                    return false;
-                }
-                else
-                {
-                    System.out.println("Player not on same server");
-                    prepareModule.registerRunnable(playerId, player -> {
-                        player.setPlayerListHeaderFooter("Skyblock", "Server: " + SkyblockLibrary.get().getServerId());
-                        player.teleport(world.getSpawnLocation());
-                        
-                        // Show arrival message
-                        Sync.get().run(() -> {
-                            Messages.arrived(player, "Your Island");
-                        }).delay(5).execute();
-                    });
-                    return true;
-                }
-            });
-
-            SkyblockLibrary.get().getApi().getLoadIslandFlow().setServerHandler((requesterPlayerId, callback) -> {
-                UUID islandId = requesterPlayerId;
-
-                remoteWorldsModule.loadWorld("islands/" + islandId, world -> {
-                    callback.accept(new IslandModel(SkyblockLibrary.get().getServerId(), islandId, islandId));
-                    setIslandsServer(islandId, SkyblockLibrary.get().getServerId());
-                });
-            });
+        // Listen for teleport requests (from proxy)
+        if (SkyblockLibrary.get().getServerType() == ServerType.ISLANDS) {
+            setupIslandServerHandlers();
         }
+        
+        setupTeleportListeners();
 
         this.registerCommands(new SpawnCommand(this));
         this.registerCommands(new IslandCommand(this));
-
         this.registerListener(new DeathReturnToIslandListener(this));
+    }
+
+    /**
+     * Setup handlers for island server (loading worlds, preparing players)
+     */
+    private void setupIslandServerHandlers() {
+        // Listen for "load this island" requests
+        exchange.subscribe(e -> {
+            if (e instanceof RequestPlayerGoToIsland request) {
+                String targetServer = request.getTargetServerId();
+                if (targetServer == null || !targetServer.equals(SkyblockLibrary.get().getServerId())) {
+                    return;
+                }
+
+                UUID playerId = request.getPlayerId();
+                UUID islandId = request.getIslandId();
+
+                System.out.println("Loading island " + islandId + " for player " + playerId);
+
+                // Load the island world
+                remoteWorldsModule.loadWorld("islands/" + islandId, world -> {
+                    world.setSpawnLocation(0, 100, 0);
+                    world.getWorldBorder().setCenter(0, 0);
+                    world.getWorldBorder().setSize(50);
+
+                    // Tell controller island is ready
+                    controller.markIslandReady(islandId, SkyblockLibrary.get().getServerId());
+
+                    // Prepare for player arrival
+                    prepareModule.registerRunnable(playerId, player -> {
+                        player.teleport(world.getSpawnLocation());
+                        Sync.get().run(() -> Messages.arrived(player, "Your Island")).delay(5).execute();
+                    });
+
+                    System.out.println("✓ Island " + islandId + " ready, waiting for player");
+                });
+            }
+        });
+    }
+
+    /**
+     * Setup listeners for teleport requests
+     */
+    private void setupTeleportListeners() {
+        // Listen for "go to spawn" requests
+        exchange.subscribe(e -> {
+            if (e instanceof RequestPlayerGoToSpawn request) {
+                Player player = Bukkit.getPlayer(request.getPlayerId());
+                if (player != null && player.isOnline()) {
+                    // Player is on this server, need to send them to spawn via proxy
+                    // The proxy will handle the actual server transfer
+                }
+            }
+        });
     }
 
     @Override
     protected void onDisable()
     {
+        // Unload all islands on this server
         String serverId = SkyblockLibrary.get().getServerId();
-        List<String> islandIds = SkyblockLibrary.get().getMessageExchange().getListItems("server-islands-" + serverId);
-        for (String islandIdStr : islandIds)
-        {
-            UUID islandId = UUID.fromString(islandIdStr);
-            World world = getIslandOnServer(islandId);
-            if (world != null)
-            {
-                this.saveAndUnloadIsland(islandId);
+        for (World world : Bukkit.getWorlds()) {
+            if (world.getName().startsWith("islands/")) {
+                UUID islandId = UUID.fromString(world.getName().replace("islands/", ""));
+                saveAndUnloadIsland(islandId);
             }
         }
-
-        SkyblockLibrary.get().getMessageExchange().delete("server-islands-" + serverId);
     }
 
-    public void sendToIsland(Player player, UUID islandId)
-    {
-        SkyblockLibrary.get().getApi().sendPlayerToIsland(player.getUniqueId(), islandId);
+    /**
+     * Request to go to an island (called from command)
+     */
+    public void goToIsland(Player player, UUID islandId) {
+        Messages.teleporting(player, "Your Island");
+
+        // Check if island world is already loaded on this server
+        World localWorld = Bukkit.getWorld("islands/" + islandId);
+        if (localWorld != null) {
+            player.teleport(localWorld.getSpawnLocation());
+            Messages.arrived(player, "Your Island");
+            return;
+        }
+
+        // Ask controller where to go
+        controller.getOrCreateIsland(islandId).thenAccept(response -> {
+            if (response.error() != null) {
+                Sync.get().run(() -> Messages.error(player, response.error())).execute();
+                return;
+            }
+
+            String targetServer = response.serverId();
+            boolean needsLoading = response.needsLoading();
+
+            // Send request to load island (proxy will route the player)
+            RequestPlayerGoToIsland request = new RequestPlayerGoToIsland();
+            request.setPlayerId(player.getUniqueId());
+            request.setIslandId(islandId);
+            request.setTargetServerId(targetServer);
+            exchange.publishMessage(request);
+
+        }).exceptionally(e -> {
+            Sync.get().run(() -> Messages.error(player, "Failed to connect to controller")).execute();
+            e.printStackTrace();
+            return null;
+        });
     }
 
-    public World getIslandOnServer(UUID islandId)
-    {
-        return Bukkit.getWorld("islands/" + islandId);
-    }
+    /**
+     * Request to go to spawn
+     */
+    public void goToSpawn(Player player) {
+        Messages.teleporting(player, "Spawn");
 
-    public String getIslandsServer(UUID islandId)
-    {
-        return this.exchange.get("island-" + islandId);
-    }
-
-    public void setIslandsServer(UUID islandId, String serverId)
-    {
-        this.exchange.set("island-" + islandId, serverId);
-        this.exchange.addToList("server-islands-" + serverId, islandId.toString());
-    }
-
-    private void deleteIslandsServer(UUID islandId)
-    {
-        String serverId = SkyblockLibrary.get().getServerId();
-        SkyblockLibrary.get().getMessageExchange().delete("island-" + islandId);
-        SkyblockLibrary.get().getMessageExchange().removeFromList("server-islands-" + serverId, islandId.toString());
+        RequestPlayerGoToSpawn request = new RequestPlayerGoToSpawn();
+        request.setPlayerId(player.getUniqueId());
+        exchange.publishMessage(request);
     }
 
     public void saveAndUnloadIsland(UUID islandId)
     {
         String worldName = "islands/" + islandId;
-
         World world = Bukkit.getWorld(worldName);
 
-        for (Player currentPlayer : world.getPlayers()) {
-            SkyblockLibrary.get().getApi().sendPlayerToSpawn(currentPlayer.getUniqueId());
+        if (world != null) {
+            // Kick all players to spawn
+            for (Player currentPlayer : world.getPlayers()) {
+                goToSpawn(currentPlayer);
+            }
+
+            // Save and unload
+            this.remoteWorldsModule.saveAndUnloadWorld(worldName);
         }
 
-        this.remoteWorldsModule.saveAndUnloadWorld("islands/" + islandId);
-        this.deleteIslandsServer(islandId);
+        // Tell controller
+        controller.markIslandUnloaded(islandId);
+    }
+
+    public World getIslandOnServer(UUID islandId)
+    {
+        return Bukkit.getWorld("islands/" + islandId);
     }
 
     public Island getIsland(UUID islandId)
@@ -185,13 +210,11 @@ public class SkyIslandsModule extends Module
     public Island getIslandByWorld(World world)
     {
         String worldName = world.getName();
-        if(!worldName.startsWith("islands/"))
-        {
+        if (!worldName.startsWith("islands/")) {
             return null;
         }
 
         UUID islandId = UUID.fromString(worldName.replace("islands/", ""));
-
         return getIsland(islandId);
     }
 }

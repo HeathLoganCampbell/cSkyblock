@@ -3,7 +3,7 @@ package dev.cobblesword.skyblock.library;
 import dev.cobblesword.exchange.api.IExchange;
 import dev.cobblesword.exchange.impl.redis.RedisExchange;
 import dev.cobblesword.exchange.impl.redis.RedisSettings;
-import dev.cobblesword.exchange.protocols.KeepAlive;
+import dev.cobblesword.skyblock.library.controller.ControllerClient;
 import dev.cobblesword.skyblock.library.database.Database;
 import dev.cobblesword.skyblock.library.modules.chat.ChatModule;
 import dev.cobblesword.skyblock.library.modules.playersync.PlayerSyncModule;
@@ -16,14 +16,9 @@ import dev.cobblesword.skyblock.library.modules.skyislands.SkyIslandsModule;
 import dev.cobblesword.skyblock.saga.SkyblockApi;
 import dev.jorel.commandapi.CommandAPI;
 import dev.jorel.commandapi.CommandAPIBukkitConfig;
-import lombok.Data;
 import lombok.Getter;
-import lombok.Setter;
 import org.bukkit.Bukkit;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.UUID;
 
 public class SkyblockLibrary
 {
@@ -47,6 +42,11 @@ public class SkyblockLibrary
 
     @Getter
     private ScoreboardModule scoreboardModule;
+
+    @Getter
+    private ControllerClient controller;
+
+    private static final String CONTROLLER_URL = "http://localhost:8080";
 
     public static SkyblockLibrary get()
     {
@@ -88,11 +88,24 @@ public class SkyblockLibrary
 
         this.database = new Database();
         this.exchange = getExchange();
+        this.controller = new ControllerClient(CONTROLLER_URL);
 
         this.serverTrackerModule = new ServerTrackerModule();
         this.serverTrackerModule.enable();
 
-        this.skyblockApi = new SkyblockApi(this.getMessageExchange(), skyblockLibrary.getServerId(), false);
+        // Register with controller
+        String serverId = getServerId();
+        String serverType = getServerType().name().toLowerCase();
+        controller.registerServer(serverId, serverType, "localhost", Bukkit.getPort())
+            .thenRun(() -> System.out.println("✓ Registered with controller: " + serverId))
+            .exceptionally(e -> { System.err.println("✗ Failed to register with controller: " + e.getMessage()); return null; });
+
+        // Start heartbeat task
+        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+            controller.heartbeat(serverId, Bukkit.getOnlinePlayers().size());
+        }, 200L, 200L); // Every 10 seconds
+
+        this.skyblockApi = new SkyblockApi(this.getMessageExchange(), serverId, false);
 
         RemoteWorldsModule remoteWorldsModule = new RemoteWorldsModule();
         remoteWorldsModule.enable();
@@ -100,7 +113,7 @@ public class SkyblockLibrary
         PrepareModule prepareModule = new PrepareModule();
         prepareModule.enable();
 
-        skyIslandsModule = new SkyIslandsModule(prepareModule, remoteWorldsModule, this.exchange);
+        skyIslandsModule = new SkyIslandsModule(prepareModule, remoteWorldsModule, this.exchange, this.controller);
         skyIslandsModule.enable();
         new PlayerSyncModule(this.database, this.exchange).enable();
         new ChatModule(this.exchange).enable();
@@ -111,8 +124,10 @@ public class SkyblockLibrary
 
     public void disable()
     {
+        // Unregister from controller
+        controller.unregisterServer(getServerId());
+        
         skyIslandsModule.disable();
-
         exchange.stop();
     }
 

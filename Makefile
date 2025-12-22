@@ -43,7 +43,7 @@ copy:
 	@cp out/Islands-1.0-SNAPSHOT.jar $(RUNTIME)/islands-1/plugins/Skyblock-Islands.jar 2>/dev/null || true
 	@cp out/Islands-1.0-SNAPSHOT.jar $(RUNTIME)/islands-2/plugins/Skyblock-Islands.jar 2>/dev/null || true
 	@cp out/Proxy-1.0-SNAPSHOT.jar $(RUNTIME)/proxy/plugins/Skyblock-Proxy.jar 2>/dev/null || true
-	@cp out/Controller-1.0-SNAPSHOT.jar $(RUNTIME)/controller/controller.jar 2>/dev/null || true
+	@cp Controller/target/Controller-1.0-SNAPSHOT.jar $(RUNTIME)/controller/controller.jar 2>/dev/null || true
 	@# Copy shared plugins to all backend servers
 	@cp $(RUNTIME)/plugins-shared/*.jar $(RUNTIME)/spawn/plugins/ 2>/dev/null || true
 	@cp $(RUNTIME)/plugins-shared/*.jar $(RUNTIME)/islands-1/plugins/ 2>/dev/null || true

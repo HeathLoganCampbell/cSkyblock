@@ -21,6 +21,6 @@ public class DeathReturnToIslandListener implements Listener
     {
         Player player = e.getEntity();
 
-        Sync.get().run(() -> this.skyIslandsModule.sendToIsland(player, player.getUniqueId())).delay(4).execute();
+        Sync.get().run(() -> this.skyIslandsModule.goToIsland(player, player.getUniqueId())).delay(4).execute();
     }
 }

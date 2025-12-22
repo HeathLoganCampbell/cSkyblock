@@ -30,6 +30,21 @@ start_server() {
     echo "  ✓ $name started (PID: $!)"
 }
 
+start_controller() {
+    if [ -f "$PIDS/controller.pid" ]; then
+        pid=$(cat "$PIDS/controller.pid")
+        if ps -p $pid > /dev/null 2>&1; then
+            echo "  controller already running (PID: $pid)"
+            return
+        fi
+    fi
+    
+    cd "$RUNTIME/controller"
+    $JAVA -jar controller.jar 8080 > controller.log 2>&1 &
+    echo $! > "$PIDS/controller.pid"
+    echo "  ✓ controller started (PID: $!) - http://localhost:8080"
+}
+
 stop_server() {
     local name=$1
     if [ -f "$PIDS/$name.pid" ]; then
@@ -45,6 +60,8 @@ stop_server() {
 case "$1" in
     start)
         echo "Starting servers..."
+        start_controller
+        sleep 2
         start_server "spawn" "spawn" "server.jar" "1G"
         start_server "islands" "islands-1" "server.jar" "1G"
         echo "  ⏳ Waiting 20s for Minecraft servers..."
@@ -52,7 +69,8 @@ case "$1" in
         start_server "proxy" "proxy" "bungeecord.jar" "512M"
         echo ""
         echo "✓ All servers running!"
-        echo "  Connect: localhost:25565"
+        echo "  Controller: http://localhost:8080"
+        echo "  Minecraft:  localhost:25565"
         echo ""
         ;;
     stop)
@@ -60,6 +78,7 @@ case "$1" in
         stop_server "proxy"
         stop_server "spawn"
         stop_server "islands"
+        stop_server "controller"
         echo "✓ Stopped"
         ;;
     restart)
@@ -71,7 +90,7 @@ case "$1" in
         echo ""
         echo "Server Status"
         echo "─────────────"
-        for name in spawn islands proxy; do
+        for name in controller spawn islands proxy; do
             if [ -f "$PIDS/$name.pid" ]; then
                 pid=$(cat "$PIDS/$name.pid")
                 if ps -p $pid > /dev/null 2>&1; then
@@ -86,11 +105,10 @@ case "$1" in
         echo ""
         ;;
     logs)
-        tail -f "$RUNTIME"/*/server.log
+        tail -f "$RUNTIME"/*/server.log "$RUNTIME"/controller/controller.log 2>/dev/null
         ;;
     *)
         echo "Usage: $0 {start|stop|restart|status|logs}"
         exit 1
         ;;
 esac
-
