@@ -13,7 +13,6 @@ import dev.cobblesword.skyblock.library.modules.skyislands.commands.IslandComman
 import dev.cobblesword.skyblock.library.modules.skyislands.commands.SpawnCommand;
 import dev.cobblesword.skyblock.library.modules.skyislands.listeners.DeathReturnToIslandListener;
 import dev.cobblesword.skyblock.library.modules.skyislands.models.Island;
-import dev.cobblesword.skyblock.protocol.requests.RequestPlayerGoToIsland;
 import dev.cobblesword.skyblock.protocol.requests.RequestPlayerGoToSpawn;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -41,77 +40,15 @@ public class SkyIslandsModule extends Module
     @Override
     protected void onEnable()
     {
-        // Listen for teleport requests (from proxy)
-        if (SkyblockLibrary.get().getServerType() == ServerType.ISLANDS) {
-            setupIslandServerHandlers();
-        }
-        
-        setupTeleportListeners();
-
         this.registerCommands(new SpawnCommand(this));
         this.registerCommands(new IslandCommand(this));
         this.registerListener(new DeathReturnToIslandListener(this));
-    }
-
-    /**
-     * Setup handlers for island server (loading worlds, preparing players)
-     */
-    private void setupIslandServerHandlers() {
-        // Listen for "load this island" requests
-        exchange.subscribe(e -> {
-            if (e instanceof RequestPlayerGoToIsland request) {
-                String targetServer = request.getTargetServerId();
-                if (targetServer == null || !targetServer.equals(SkyblockLibrary.get().getServerId())) {
-                    return;
-                }
-
-                UUID playerId = request.getPlayerId();
-                UUID islandId = request.getIslandId();
-
-                System.out.println("Loading island " + islandId + " for player " + playerId);
-
-                // Load the island world
-                remoteWorldsModule.loadWorld("islands/" + islandId, world -> {
-                    world.setSpawnLocation(0, 100, 0);
-                    world.getWorldBorder().setCenter(0, 0);
-                    world.getWorldBorder().setSize(50);
-
-                    // Tell controller island is ready
-                    controller.markIslandReady(islandId, SkyblockLibrary.get().getServerId());
-
-                    // Prepare for player arrival
-                    prepareModule.registerRunnable(playerId, player -> {
-                        player.teleport(world.getSpawnLocation());
-                        Sync.get().run(() -> Messages.arrived(player, "Your Island")).delay(5).execute();
-                    });
-
-                    System.out.println("✓ Island " + islandId + " ready, waiting for player");
-                });
-            }
-        });
-    }
-
-    /**
-     * Setup listeners for teleport requests
-     */
-    private void setupTeleportListeners() {
-        // Listen for "go to spawn" requests
-        exchange.subscribe(e -> {
-            if (e instanceof RequestPlayerGoToSpawn request) {
-                Player player = Bukkit.getPlayer(request.getPlayerId());
-                if (player != null && player.isOnline()) {
-                    // Player is on this server, need to send them to spawn via proxy
-                    // The proxy will handle the actual server transfer
-                }
-            }
-        });
     }
 
     @Override
     protected void onDisable()
     {
         // Unload all islands on this server
-        String serverId = SkyblockLibrary.get().getServerId();
         for (World world : Bukkit.getWorlds()) {
             if (world.getName().startsWith("islands/")) {
                 UUID islandId = UUID.fromString(world.getName().replace("islands/", ""));
@@ -122,11 +59,12 @@ public class SkyIslandsModule extends Module
 
     /**
      * Request to go to an island (called from command)
+     * Controller handles routing - proxy sends player to correct server
      */
     public void goToIsland(Player player, UUID islandId) {
         Messages.teleporting(player, "Your Island");
 
-        // Check if island world is already loaded on this server
+        // Check if island world is already loaded on THIS server
         World localWorld = Bukkit.getWorld("islands/" + islandId);
         if (localWorld != null) {
             player.teleport(localWorld.getSpawnLocation());
@@ -134,7 +72,7 @@ public class SkyIslandsModule extends Module
             return;
         }
 
-        // Ask controller where to go
+        // Ask controller to route us (proxy will handle server transfer)
         controller.getOrCreateIsland(islandId).thenAccept(response -> {
             if (response.error() != null) {
                 Sync.get().run(() -> Messages.error(player, response.error())).execute();
@@ -142,19 +80,46 @@ public class SkyIslandsModule extends Module
             }
 
             String targetServer = response.serverId();
-            boolean needsLoading = response.needsLoading();
-
-            // Send request to load island (proxy will route the player)
-            RequestPlayerGoToIsland request = new RequestPlayerGoToIsland();
-            request.setPlayerId(player.getUniqueId());
-            request.setIslandId(islandId);
-            request.setTargetServerId(targetServer);
-            exchange.publishMessage(request);
-
+            
+            // If we're on the target server, load the island locally
+            if (targetServer.equals(SkyblockLibrary.get().getServerId())) {
+                loadIslandLocally(player, islandId);
+            }
+            // Otherwise, proxy will route us via the route API
+            
         }).exceptionally(e -> {
             Sync.get().run(() -> Messages.error(player, "Failed to connect to controller")).execute();
             e.printStackTrace();
             return null;
+        });
+    }
+
+    /**
+     * Load island world on this server and teleport player
+     */
+    public void loadIslandLocally(Player player, UUID islandId) {
+        remoteWorldsModule.loadWorld("islands/" + islandId, world -> {
+            world.setSpawnLocation(0, 100, 0);
+            world.getWorldBorder().setCenter(0, 0);
+            world.getWorldBorder().setSize(50);
+
+            // Tell controller island is ready
+            controller.markIslandReady(islandId, SkyblockLibrary.get().getServerId());
+
+            // Register teleport for when player arrives (or if already here)
+            prepareModule.registerRunnable(player.getUniqueId(), p -> {
+                p.teleport(world.getSpawnLocation());
+                Sync.get().run(() -> Messages.arrived(p, "Your Island")).delay(5).execute();
+            });
+
+            // If player is already on this server, teleport now
+            Player localPlayer = Bukkit.getPlayer(player.getUniqueId());
+            if (localPlayer != null && localPlayer.isOnline()) {
+                localPlayer.teleport(world.getSpawnLocation());
+                Messages.arrived(localPlayer, "Your Island");
+            }
+
+            System.out.println("✓ Island " + islandId + " loaded for " + player.getName());
         });
     }
 

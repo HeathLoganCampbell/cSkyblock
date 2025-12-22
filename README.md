@@ -1,6 +1,6 @@
 # cSkyblock
 
-A distributed Minecraft Skyblock server network built with BungeeCord, Paper, and Redis.
+A distributed Minecraft Skyblock server network built with BungeeCord, Paper, and a centralized Controller service.
 
 ## Architecture
 
@@ -13,19 +13,23 @@ A distributed Minecraft Skyblock server network built with BungeeCord, Paper, an
                           ├────────────▶ Islands-1 (Paper)
                           └────────────▶ Islands-2 (Paper)
 
-All servers communicate via Redis pub/sub
+                    ┌─────────────┐
+                    │ Controller  │ ◀── All servers register via HTTP
+                    │  (Javalin)  │     Island creation & routing
+                    └─────────────┘
 ```
 
 ## Modules
 
 | Module | Description |
 |--------|-------------|
-| **Proxy** | BungeeCord plugin - handles player routing, island management |
+| **Controller** | Standalone HTTP service - island management, server routing |
+| **Proxy** | BungeeCord plugin - handles player routing |
 | **Spawn** | Paper plugin - spawn server with lobby features |
 | **Islands** | Paper plugin - island servers with properties/farms |
 | **Library** | Shared code - modules, database, commands |
-| **Exchange** | Redis pub/sub messaging layer |
-| **Saga** | Distributed transaction flows (create island, teleport, etc.) |
+| **Exchange** | Redis pub/sub (used for spawn teleport, inventory sync) |
+| **Saga** | Simplified - only spawn teleport flow remains |
 
 ## Requirements
 
@@ -43,7 +47,7 @@ make infra
 # 2. Build and setup everything
 make setup
 
-# 3. Start all servers
+# 3. Start all servers (includes Controller)
 make start
 
 # 4. Connect with Minecraft 1.21.8
@@ -54,7 +58,7 @@ make start
 
 ```bash
 make help      # Show all commands
-make start     # Start all servers
+make start     # Start all servers + Controller
 make stop      # Stop all servers
 make restart   # Rebuild + restart
 make rebuild   # Build plugins only
@@ -78,8 +82,9 @@ Then run `make rebuild` to copy them.
 ## Project Structure
 
 ```
+├── Controller/        # HTTP API for island management
 ├── Exchange/          # Redis messaging library
-├── Saga/              # Distributed flow definitions
+├── Saga/              # Spawn teleport flow (simplified)
 ├── Library/           # Shared Bukkit plugin code
 ├── Spawn/             # Spawn server plugin
 ├── Islands/           # Islands server plugin
@@ -96,6 +101,20 @@ Then run `make rebuild` to copy them.
 └── Makefile          # Development commands
 ```
 
+## Controller API
+
+The Controller runs on port 8080 and handles:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/servers` | POST | Register a server |
+| `/api/servers` | GET | List all servers |
+| `/api/servers/{id}/heartbeat` | POST | Server heartbeat |
+| `/api/islands/{playerId}` | POST | Create/get island for player |
+| `/api/islands/{id}/ready` | POST | Mark island as ready |
+| `/api/islands/{id}/unload` | POST | Mark island as unloaded |
+| `/api/route/{playerId}` | GET | Get server to route player to |
+
 ## Configuration
 
 ### Database
@@ -105,17 +124,8 @@ Default: `skyblock` / `skyblock` / `skyblock`
 ### Servers
 - Proxy: `runtime/proxy/config.yml`
 - Backend: `runtime/*/server.properties`
-
-## Flows
-
-The project uses a saga pattern for distributed operations:
-
-- **CreateIslandFlow** - Creates new island for player
-- **TeleportToIslandFlow** - Teleports player to their island
-- **TeleportToSpawnFlow** - Teleports player back to spawn
-- **LoadIslandFlow** - Loads island world on server
+- Controller: Runs on port 8080
 
 ## License
 
 MIT
-

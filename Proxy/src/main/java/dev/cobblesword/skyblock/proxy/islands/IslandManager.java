@@ -1,7 +1,6 @@
 package dev.cobblesword.skyblock.proxy.islands;
 
 import dev.cobblesword.exchange.api.IExchange;
-import dev.cobblesword.skyblock.protocol.requests.RequestPlayerGoToIsland;
 import dev.cobblesword.skyblock.protocol.requests.RequestPlayerGoToSpawn;
 import dev.cobblesword.skyblock.proxy.controller.ProxyControllerClient;
 import net.md_5.bungee.api.ProxyServer;
@@ -11,7 +10,8 @@ import net.md_5.bungee.api.connection.ProxiedPlayer;
 import java.util.UUID;
 
 /**
- * Simplified Island Manager using Controller service
+ * Simplified Island Manager using Controller service.
+ * Only handles spawn teleport via Redis - island routing uses Controller API.
  */
 public class IslandManager {
 
@@ -29,29 +29,12 @@ public class IslandManager {
     }
 
     private void setupListeners() {
-        // Listen for island teleport requests
+        // Listen for spawn teleport requests (still uses Redis for now)
         exchange.subscribe(e -> {
-            if (e instanceof RequestPlayerGoToIsland request) {
-                handleIslandRequest(request);
-            }
-            
             if (e instanceof RequestPlayerGoToSpawn request) {
                 handleSpawnRequest(request);
             }
         });
-    }
-
-    private void handleIslandRequest(RequestPlayerGoToIsland request) {
-        UUID playerId = request.getPlayerId();
-        String targetServerId = request.getTargetServerId();
-
-        ProxiedPlayer player = proxy.getPlayer(playerId);
-        if (player == null) {
-            System.out.println("Player " + playerId + " not online for island teleport");
-            return;
-        }
-
-        sendToServer(player, targetServerId);
     }
 
     private void handleSpawnRequest(RequestPlayerGoToSpawn request) {
@@ -66,7 +49,25 @@ public class IslandManager {
         sendToServer(player, spawnServerId);
     }
 
-    private void sendToServer(ProxiedPlayer player, String serverId) {
+    /**
+     * Route player to their island via Controller API
+     */
+    public void sendPlayerToIsland(ProxiedPlayer player, UUID islandId) {
+        controller.getRoute(player.getUniqueId()).thenAccept(route -> {
+            if (route == null || route.serverId() == null) {
+                player.sendMessage("§c✖ §7Could not find your island. Try again.");
+                return;
+            }
+
+            sendToServer(player, route.serverId());
+        }).exceptionally(e -> {
+            player.sendMessage("§c✖ §7Failed to connect to controller.");
+            e.printStackTrace();
+            return null;
+        });
+    }
+
+    public void sendToServer(ProxiedPlayer player, String serverId) {
         ServerInfo targetServer = proxy.getServerInfo(serverId);
         
         if (targetServer != null) {

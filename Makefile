@@ -1,6 +1,6 @@
 # Skyopoly Development Makefile
 
-.PHONY: infra build copy config rebuild start stop restart status logs setup clean reset help controller
+.PHONY: infra build copy config rebuild start stop restart status logs setup clean reset help controller r
 
 RUNTIME = runtime
 
@@ -12,7 +12,7 @@ help:
 	@echo "  make setup      - First time setup"
 	@echo "  make start      - Start all servers"
 	@echo "  make stop       - Stop all servers"
-	@echo "  make restart    - Rebuild + restart"
+	@echo "  make r          - Rebuild + restart (shortcut)"
 	@echo "  make status     - Show server status"
 	@echo "  make logs       - Tail all logs"
 	@echo "  make rebuild    - Build plugins only"
@@ -70,6 +70,9 @@ stop:
 	@bash Scripts/server.sh stop
 
 restart: stop rebuild start
+
+# Short alias for restart
+r: restart
 
 status:
 	@bash Scripts/server.sh status
