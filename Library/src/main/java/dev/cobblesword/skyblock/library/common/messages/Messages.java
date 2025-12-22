@@ -166,39 +166,25 @@ public class Messages {
     // ═══════════════════════════════════════════════════════════════
     
     public static void welcome(Player player) {
-        player.sendTitle(
-            PRIMARY_BOLD + STAR + " SKYOPOLY " + STAR,
-            ACCENT + "Welcome back, " + SECONDARY + player.getName() + ACCENT + "!",
-            20, 60, 20
-        );
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 1.0f);
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 1.25f);
+        // Subtle action bar welcome instead of big title
+        actionBar(player, ACCENT + "Welcome back, " + SECONDARY + player.getName() + ACCENT + "!");
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 1.2f);
     }
     
     public static void islandCreated(Player player) {
-        player.sendTitle(
-            SUCCESS + ChatColor.BOLD + ISLAND + " Island Created!",
-            MUTED + "Your adventure begins now...",
-            10, 60, 20
-        );
-        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.8f, 1.0f);
+        // Just a success message, no big title
+        success(player, "Island created!");
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.2f);
     }
     
     public static void teleporting(Player player, String destination) {
-        player.sendTitle(
-            PRIMARY_BOLD + SPARKLE + " Teleporting " + SPARKLE,
-            MUTED + "to " + SECONDARY + destination,
-            5, 30, 10
-        );
-        player.playSound(player.getLocation(), Sound.BLOCK_PORTAL_TRIGGER, 0.3f, 1.5f);
+        // Subtle action bar instead of title
+        actionBar(player, MUTED + "Teleporting to " + SECONDARY + destination + MUTED + "...");
     }
     
     public static void arrived(Player player, String location) {
-        player.sendTitle(
-            "",
-            PRIMARY + ARROW + " " + SECONDARY + location,
-            5, 40, 10
-        );
+        // Subtle action bar arrival
+        actionBar(player, PRIMARY + ARROW + " " + SECONDARY + location);
         playTeleport(player);
     }
     

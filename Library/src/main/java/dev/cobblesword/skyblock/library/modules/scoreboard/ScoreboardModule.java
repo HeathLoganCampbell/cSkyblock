@@ -62,10 +62,10 @@ public class ScoreboardModule extends Module implements Listener
 
         this.boards.put(player.getUniqueId(), board);
         
-        // Show welcome title
+        // Subtle welcome
         Bukkit.getScheduler().runTaskLater(SkyblockLibrary.get().getPlugin(), () -> {
             Messages.welcome(player);
-        }, 10L);
+        }, 20L);
     }
 
     @EventHandler

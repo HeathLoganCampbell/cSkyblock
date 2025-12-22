@@ -1,6 +1,6 @@
 # Skyopoly Development Makefile
 
-.PHONY: infra build copy config rebuild start stop restart status logs setup clean reset help
+.PHONY: infra build copy config rebuild start stop restart status logs setup clean reset help controller
 
 RUNTIME = runtime
 
@@ -9,14 +9,15 @@ help:
 	@echo "Skyopoly Development"
 	@echo "━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
-	@echo "  make setup   - First time setup"
-	@echo "  make start   - Start all servers"
-	@echo "  make stop    - Stop all servers"
-	@echo "  make restart - Rebuild + restart"
-	@echo "  make status  - Show server status"
-	@echo "  make logs    - Tail all logs"
-	@echo "  make rebuild - Build plugins only"
-	@echo "  make clean   - Remove runtime"
+	@echo "  make setup      - First time setup"
+	@echo "  make start      - Start all servers"
+	@echo "  make stop       - Stop all servers"
+	@echo "  make restart    - Rebuild + restart"
+	@echo "  make status     - Show server status"
+	@echo "  make logs       - Tail all logs"
+	@echo "  make rebuild    - Build plugins only"
+	@echo "  make controller - Start controller only"
+	@echo "  make clean      - Remove runtime"
 	@echo ""
 	@echo "Plugin Folders:"
 	@echo "  runtime/plugins-shared/  → Copied to ALL backend servers"
@@ -36,12 +37,13 @@ build:
 
 copy:
 	@mkdir -p $(RUNTIME)/spawn/plugins $(RUNTIME)/islands-1/plugins $(RUNTIME)/islands-2/plugins $(RUNTIME)/proxy/plugins
-	@mkdir -p $(RUNTIME)/plugins-shared $(RUNTIME)/plugins-proxy
+	@mkdir -p $(RUNTIME)/plugins-shared $(RUNTIME)/plugins-proxy $(RUNTIME)/controller
 	@# Copy project plugins
 	@cp out/Spawn-1.0-SNAPSHOT.jar $(RUNTIME)/spawn/plugins/Skyblock-Spawn.jar 2>/dev/null || true
 	@cp out/Islands-1.0-SNAPSHOT.jar $(RUNTIME)/islands-1/plugins/Skyblock-Islands.jar 2>/dev/null || true
 	@cp out/Islands-1.0-SNAPSHOT.jar $(RUNTIME)/islands-2/plugins/Skyblock-Islands.jar 2>/dev/null || true
 	@cp out/Proxy-1.0-SNAPSHOT.jar $(RUNTIME)/proxy/plugins/Skyblock-Proxy.jar 2>/dev/null || true
+	@cp out/Controller-1.0-SNAPSHOT.jar $(RUNTIME)/controller/controller.jar 2>/dev/null || true
 	@# Copy shared plugins to all backend servers
 	@cp $(RUNTIME)/plugins-shared/*.jar $(RUNTIME)/spawn/plugins/ 2>/dev/null || true
 	@cp $(RUNTIME)/plugins-shared/*.jar $(RUNTIME)/islands-1/plugins/ 2>/dev/null || true
@@ -49,6 +51,10 @@ copy:
 	@# Copy proxy-specific plugins
 	@cp $(RUNTIME)/plugins-proxy/*.jar $(RUNTIME)/proxy/plugins/ 2>/dev/null || true
 	@echo "✓ Plugins copied"
+
+controller:
+	@echo "Starting Controller on port 8080..."
+	@cd $(RUNTIME)/controller && java -jar controller.jar 8080
 
 config:
 	@mkdir -p $(RUNTIME)/proxy
